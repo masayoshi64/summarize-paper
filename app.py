@@ -1,5 +1,6 @@
 import requests
 import argparse
+import re
 
 import streamlit as st
 from langchain.globals import set_debug
@@ -55,6 +56,28 @@ def fetch_paper(url):
     return paper_title, sections
 
 
+def parse_paper(url):
+    paper_path = url.replace("file://", "")
+    response = requests.post(
+        "http://localhost:8070/api/processFulltextDocument", 
+        files=[("input", (open(paper_path, "rb")))]
+    )
+    soup = BeautifulSoup(response.text, features="xml")
+    paper_title = soup.find("title").text
+    
+    sections = []
+    for head in soup.find_all("head", n=re.compile("^\d+$")):
+        section_title = head.text
+        section_element = head.parent
+        section_text = ""
+        for paragraph_element in section_element.find_all("p"):
+            section_text += paragraph_element.text + "\n"
+        section_text = section_text.strip()
+        sections.append((section_title, section_text))
+    
+    return paper_title, sections
+
+
 def summarize_section(paper_title, section_title, section_text, model_name):
     model = ChatOpenAI(model_name=model_name)
     prompt = ChatPromptTemplate.from_template(template)
@@ -71,9 +94,22 @@ def summarize_section(paper_title, section_title, section_text, model_name):
 
 
 def main():
-    url = st.text_input('Enter URL: https://arxiv.org/abs/0000.00000')
+    url = st.text_input('Enter URL')
+    paper_type = st.radio(label='形式を指定してください',
+                    options=('ar5iv', 'pdf'),
+                    index=0,
+                    horizontal=True,
+    )
+
     if st.button('Summarize'):
-        paper_title, sections = fetch_paper(url)
+        if paper_type == 'ar5iv':
+            paper_title, sections = fetch_paper(url)
+        elif paper_type == 'pdf':
+            paper_title, sections = parse_paper(url)
+        else:
+            st.write('Error')
+            return
+
         st.write("## " + paper_title)
 
         for section_title, section_text in sections:
