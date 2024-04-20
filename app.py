@@ -1,9 +1,12 @@
+import requests
+import argparse
+
 import streamlit as st
+from langchain.globals import set_debug
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from dotenv import load_dotenv
-import requests
 from bs4 import BeautifulSoup
 
 
@@ -77,10 +80,14 @@ def main():
             section_summary = summarize_section(paper_title, section_title, section_text, "gpt-3.5-turbo")
             st.write("### " + section_title)
             st.write(section_summary)
-            print(section_summary)
             st.write("---")
         
         
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--debug", action="store_true")
+    args = parser.parse_args()
+
     load_dotenv()
+    set_debug(args.debug)
     main()
